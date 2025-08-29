@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: 1
+    networks:
+      - qc_tt
+
+  api:
+    build: ./API
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    mem_limit: 768m
+    cpus: 1
+    depends_on:
+      - postgres
+    networks:
+      - qc_tt
+
+volumes:
+  postgres_data:
+
+networks:
+  qc_tt:
+    external: true   # sử dụng network đã tạo sẵn bên ngoài

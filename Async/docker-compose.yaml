@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  new_postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    ports:
+      - "5433:5432" 
+    volumes:
+      - new_postgres_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: 1
+    networks:
+      - qc_tt
+
+  kafka:
+    image: apache/kafka:4.0.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    mem_limit: 1g
+    cpus: 1
+    networks:
+      - qc_tt
+
+  order_placement:
+    build: ./Order_placement
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    mem_limit: 128m
+    cpus: 3
+    depends_on:
+      - kafka
+      - new_postgres # Cập nhật tên service
+    networks:
+      - qc_tt
+
+  check_inventory:
+    build: ./Check_inventory
+    ports:
+      - "8002:8000"
+    mem_limit: 128m
+    cpus: 0.07
+    depends_on:
+      - kafka
+      - new_postgres # Cập nhật tên service
+    networks:
+      - qc_tt
+  
+# Thêm volume mới vào cuối file
+volumes:
+  new_postgres_data:
+  kafka_data:
+
+networks:
+  qc_tt:
+    external: true   # sử dụng network đã tạo sẵn bên ngoài
